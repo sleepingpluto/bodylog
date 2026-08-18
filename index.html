@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bodylog - 目標管理・クラウド同期版</title>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body { background-color: #f8fafc; color: #1e293b; font-family: sans-serif; margin: 0; padding: 0; }
+        header { background: linear-gradient(to right, #0d9488, #059669); color: white; padding: 14px 16px; position: sticky; top: 0; z-index: 30; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header-container { max-width: 448px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .header-title { font-size: 20px; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 8px; }
+        .btn-settings { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 20px; font-size: 14px; cursor: pointer; font-weight: bold; }
+        main { max-width: 448px; width: 100%; margin: 0 auto; padding: 24px 16px; }
+        section { background: white; border-radius: 16px; padding: 20px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
+        
+        .form-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .input-card { background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 14px; border-radius: 12px; }
+        .input-card-alt { background-color: #ecfdf5; border: 1px solid #d1fae5; padding: 14px; border-radius: 12px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #115e59; margin-bottom: 6px; }
+        
+        input[type="number"] { width: 100%; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 8px; font-size: 18px; font-weight: bold; background-color: white; color: #1e293b; }
+        input[type="url"], input[type="date"] { width: 100%; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 16px; background-color: white; }
+        
+        .btn-submit { width: 100%; padding: 14px; background: linear-gradient(to right, #0d9488, #10b981); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(13,148,136,0.2); }
+        
+        /* ダッシュボードグリッド */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+        .stat-box { background: white; padding: 14px; border-radius: 16px; text-align: center; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; }
+        .stat-val { font-size: 24px; font-weight: 900; color: #0d9488; margin: 4px 0; }
+        .stat-target { font-size: 11px; color: #64748b; background: #f1f5f9; padding: 4px; border-radius: 6px; margin-top: 4px; }
+        
+        .filter-group { display: flex; background: #f1f5f9; border-radius: 10px; padding: 2px; margin-bottom: 16px; }
+        .btn-filter { flex: 1; border: none; background: transparent; padding: 6px; font-size: 12px; font-weight: bold; color: #64748b; border-radius: 8px; cursor: pointer; }
+        .btn-filter.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        .tab-group { display: flex; border-bottom: 1px solid #f1f5f9; margin-bottom: 12px; gap: 8px; }
+        .btn-tab { flex: 1; background: transparent; border: none; border-bottom: 3px solid transparent; padding: 8px 0; font-size: 14px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+        .btn-tab.active.weight { color: #0d9488; border-bottom-color: #0d9488; }
+        .btn-tab.active.fat { color: #10b981; border-bottom-color: #10b981; }
+        
+        .chart-container { position: relative; width: 100%; height: 220px; background: #fafafa; border-radius: 8px; padding: 10px; border: 1px dashed #e2e8f0; }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .history-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+        @media (min-width: 640px) { .modal { align-items: center; } }
+        .modal-content { background: white; width: 100%; max-width: 448px; border-radius: 24px 24px 0 0; overflow: hidden; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); }
+        @media (min-width: 640px) { .modal-content { border-radius: 16px; } }
+        .modal-header { padding: 16px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; background: #f8fafc; }
+        .hidden { display: none !important; }
+        .banner { background: linear-gradient(to right, #ecfdf5, #f0fdfa); border: 1px solid #a7f3d0; padding: 16px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .btn-sync { background: #059669; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-sync:disabled { background: #9ca3af; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <!-- ヘッダー -->
+    <header>
+        <div class="header-container">
+            <h1 class="header-title">☁️ Bodylog</h1>
+            <button id="btn-settings" class="btn-settings">⚙️ 設定</button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main>
+        <!-- 同期ステータスバナー -->
+        <section id="sync-banner" class="banner hidden">
+            <div>
+                <b id="sync-banner-title" style="color: #065f46; font-size: 14px;">🔄 ドライブと未同期</b>
+                <div id="sync-banner-desc" style="color: #047857; font-size: 12px;">クラウドに未送信のデータがあります</div>
+            </div>
+            <button id="btn-sync-action" class="btn-sync">同期する</button>
+        </section>
+
+        <!-- 入力カード -->
+        <section>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="font-size: 18px; font-weight: bold; margin: 0; color: #334155;">📝 今日の記録を追加</h2>
+                <input type="date" id="input-date" style="width: auto; font-size: 14px;">
+            </div>
+
+            <form id="record-form">
+                <div class="form-group">
+                    <div class="input-card">
+                        <label for="val-weight">体重 (kg)</label>
+                        <input type="number" step="0.1" id="val-weight" placeholder="60.0" required>
+                    </div>
+                    <div class="input-card-alt">
+                        <label for="val-fat">体脂肪率 (%)</label>
+                        <input type="number" step="0.1" id="val-fat" placeholder="15.0">
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit">💾 記録を保存</button>
+            </form>
+        </section>
+
+        <!-- 最新スタッツ ＆ 目標値ダッシュボード -->
+        <div class="dashboard-grid">
+            <div class="stat-box">
+                <div>
+                    <div style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">最新体重</div>
+                    <div id="stat-weight" class="stat-val">-</div>
+                    <div style="font-size: 10px; color: #94a3b8;">kg</div>
+                </div>
+                <div id="target-weight-box" class="stat-target">目標: 未設定</div>
+            </div>
+            <div class="stat-box">
+                <div>
+                    <div style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">最新体脂肪</div>
+                    <div id="stat-fat" class="stat-val" style="color: #10b981;">-</div>
+                    <div style="font-size: 10px; color: #94a3b8;">%</div>
+                </div>
+                <div id="target-fat-box" class="stat-target" style="color: #115e59;">目標: 未設定</div>
+            </div>
+        </div>
+
+        <!-- トレンド分析グラフセクション -->
+        <section>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 style="font-size: 18px; font-weight: bold; margin: 0; color: #334155;">📊 トレンド分析</h2>
+                <div class="filter-group">
+                    <button type="button" onclick="changeRange(30)" id="range-30" class="btn-filter active">1ヶ月</button>
+                    <button type="button" onclick="changeRange(90)" id="range-90" class="btn-filter">3ヶ月</button>
+                    <button type="button" onclick="changeRange(180)" id="range-180" class="btn-filter">6ヶ月</button>
+                </div>
+            </div>
+
+            <div class="tab-group">
+                <button type="button" id="tab-weight" onclick="switchChartTab('weight')" class="btn-tab active weight">体重 (kg)</button>
+                <button type="button" id="tab-fat" onclick="switchChartTab('fat')" class="btn-tab fat">体脂肪率 (%)</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="customAnalyticsChart"></canvas>
+            </div>
+        </section>
+
+        <!-- 履歴一覧 (直近5件表示) -->
+        <section>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 style="font-size: 18px; font-weight: bold; margin: 0; color: #334155;">📋 直近の記録履歴 (5件)</h2>
+                <span id="record-count" style="font-size: 12px; background: #f1f5f9; padding: 2px 8px; border-radius: 10px; font-weight: bold;">0件</span>
+            </div>
+            <div id="history-container">
+                <p style="text-align: center; color: #94a3b8; padding: 24px 0; font-size: 14px;">記録がありません</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- 設定・目標管理モーダル -->
+    <div id="modal-settings" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <b style="color: #334155;">⚙️ Bodylog 設定・目標</b>
+                <button id="btn-close-settings" style="background: none; border: none; font-size: 16px; cursor: pointer;">❌</button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- 目標値設定フォーム -->
+                <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <b style="font-size: 13px; color: #475569; display: block; margin-bottom: 10px;">🎯 体型管理の目標設定</b>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="color: #64748b; font-size: 11px;">目標体重 (kg)</label>
+                            <input type="number" step="0.1" id="cfg-target-weight" placeholder="55.0">
+                        </div>
+                        <div>
+                            <label style="color: #64748b; font-size: 11px;">目標体脂肪率 (%)</label>
+                            <input type="number" step="0.1" id="cfg-target-fat" placeholder="12.0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GAS連携URL設定 -->
+                <div style="margin-bottom: 20px;">
+                    <label style="color: #64748b; display: block; margin-bottom: 6px; font-size: 13px; font-weight: bold;">GAS ウェブアプリURL (同期用)</label>
+                    <input type="url" id="cfg-gas-url" placeholder="https://script.google.com/macros/s/.../exec">
+                </div>
+                
+                <button id="btn-save-settings" class="btn-submit">設定を保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appState = {
+            records: [],
+            currentRange: 30, 
+            activeTab: 'weight', 
+            settings: { gasUrl: '', targetWeight: '', targetFat: '' }
+        };
+
+        const recordForm = document.getElementById('record-form');
+        const inputDate = document.getElementById('input-date');
+        const valWeight = document.getElementById('val-weight');
+        const valFat = document.getElementById('val-fat');
+        const statWeight = document.getElementById('stat-weight');
+        const statFat = document.getElementById('stat-fat');
+        const targetWeightBox = document.getElementById('target-weight-box');
+        const targetFatBox = document.getElementById('target-fat-box');
+        const historyContainer = document.getElementById('history-container');
+        const recordCountBadge = document.getElementById('record-count');
+        const syncBanner = document.getElementById('sync-banner');
+        const syncBannerTitle = document.getElementById('sync-banner-title');
+        const syncBannerDesc = document.getElementById('sync-banner-desc');
+        const btnSyncAction = document.getElementById('btn-sync-action');
+        
+        const modalSettings = document.getElementById('modal-settings');
+        const btnSettings = document.getElementById('btn-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const btnSaveSettings = document.getElementById('btn-save-settings');
+        const cfgGasUrl = document.getElementById('cfg-gas-url');
+        const cfgTargetWeight = document.getElementById('cfg-target-weight');
+        const cfgTargetFat = document.getElementById('cfg-target-fat');
+
+        // 本日の日付を取得するユーティリティ (YYYY-MM-DD)
+        function getTodayString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        window.onload = async function() {
+            loadLocalData();
+            updateUI();
+            
+            // 起動時にスプレッドシートから最新データを取り込む
+            if (appState.settings.gasUrl) {
+                await fetchFromSpreadsheet();
+            }
+
+            recordForm.addEventListener('submit', handleFormSubmit);
+            btnSettings.addEventListener('click', openSettings);
+            btnCloseSettings.addEventListener('click', closeSettings);
+            btnSaveSettings.addEventListener('click', saveSettings);
+            btnSyncAction.addEventListener('click', fullSyncProcess);
+            window.addEventListener('resize', drawChart);
+        };
+
+        function loadLocalData() {
+            const stored = localStorage.getItem('bodylog_records_sync_v5');
+            if (stored) appState.records = JSON.parse(stored);
+            
+            const storedSettings = localStorage.getItem('bodylog_settings_v5');
+            if (storedSettings) appState.settings = JSON.parse(storedSettings);
+
+            filterPastOneYearRecords();
+        }
+
+        // 直近1年分のデータのみに制限・保持する関数
+        function filterPastOneYearRecords() {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+            appState.records = appState.records.filter(r => {
+                return new Date(r.date) >= oneYearAgo;
+            });
+        }
+
+        function saveLocalData() {
+            filterPastOneYearRecords();
+            appState.records.sort((a, b) => new Date(a.date) - new Date(b.date));
+            localStorage.setItem('bodylog_records_sync_v5', JSON.stringify(appState.records));
+        }
+
+        // スプレッドシートからデータ取得 (doGet)
+        async function fetchFromSpreadsheet() {
+            const gasUrl = appState.settings.gasUrl;
+            if (!gasUrl) return;
+
+            try {
+                const response = await fetch(gasUrl, { method: 'GET' });
+                if (response.ok) {
+                    const cloudData = await response.json();
+                    if (Array.isArray(cloudData)) {
+                        mergeCloudData(cloudData);
+                    }
+                }
+            } catch (error) {
+                console.error("クラウドからのデータ取得エラー:", error);
+            }
+        }
+
+        // クラウドデータとローカルデータのマージ処理
+        function mergeCloudData(cloudData) {
+            const localMap = new Map(appState.records.map(r => [r.date, r]));
+
+            cloudData.forEach(cItem => {
+                const localItem = localMap.get(cItem.date);
+                if (!localItem || localItem.synced) {
+                    localMap.set(cItem.date, {
+                        date: cItem.date,
+                        weight: cItem.weight,
+                        fat: cItem.fat,
+                        synced: true
+                    });
+                }
+            });
+
+            appState.records = Array.from(localMap.values());
+            saveLocalData();
+            updateUI();
+        }
+
+        // フォーム送信時（新規記録作成・更新）
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            // 日付指定がなかった場合は本日の日付を自動補完
+            let dateVal = inputDate.value;
+            if (!dateVal) {
+                dateVal = getTodayString();
+            }
+
+            const weightVal = parseFloat(valWeight.value);
+            const fatVal = valFat.value ? parseFloat(valFat.value) : null;
+
+            const existingIdx = appState.records.findIndex(r => r.date === dateVal);
+            const newRecord = { date: dateVal, weight: weightVal, fat: fatVal, synced: false };
+
+            if (existingIdx > -1) appState.records[existingIdx] = newRecord;
+            else appState.records.push(newRecord);
+
+            saveLocalData();
+            alert('データを保存しました');
+            valWeight.value = '';
+            valFat.value = '';
+            updateUI();
+
+            if (appState.settings.gasUrl) {
+                await syncWithSpreadsheet();
+            }
+        }
+
+        // 未同期データをPOST送信 (doPost)
+        async function syncWithSpreadsheet() {
+            const gasUrl = appState.settings.gasUrl;
+            if (!gasUrl) return;
+
+            const unsynced = appState.records.filter(r => !r.synced);
+            if (unsynced.length === 0) return;
+
+            btnSyncAction.disabled = true;
+            btnSyncAction.textContent = "同期中...";
+
+            let successCount = 0;
+            for (const record of unsynced) {
+                try {
+                    const response = await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(record)
+                    });
+                    if (response.ok) {
+                        const resData = await response.json();
+                        if (resData.result === "success") {
+                            record.synced = true;
+                            successCount++;
+                        }
+                    }
+                } catch (error) {
+                    console.error("同期エラー:", error);
+                }
+            }
+
+            saveLocalData();
+            updateUI();
+            btnSyncAction.disabled = false;
+            btnSyncAction.textContent = "同期する";
+
+            if (successCount > 0) alert(`${successCount}件のデータをスプレッドシートに同期しました！`);
+        }
+
+        // 「同期する」ボタン押下時の双方向同期処理
+        async function fullSyncProcess() {
+            btnSyncAction.disabled = true;
+            btnSyncAction.textContent = "同期中...";
+            
+            await fetchFromSpreadsheet();
+            await syncWithSpreadsheet();
+            
+            btnSyncAction.disabled = false;
+            btnSyncAction.textContent = "同期する";
+        }
+
+        function updateUI() {
+            filterPastOneYearRecords();
+
+            // 最新値の抽出 ＆ 日付初期値の自動設定（最新の日付をセット）
+            let latestWeight = null;
+            let latestFat = null;
+
+            if (appState.records.length > 0) {
+                const latest = appState.records[appState.records.length - 1];
+                latestWeight = latest.weight;
+                latestFat = latest.fat;
+                statWeight.textContent = latestWeight ? latestWeight.toFixed(1) : '-';
+                statFat.textContent = latestFat ? latestFat.toFixed(1) : '-';
+                
+                // 入力欄の初期値を最新の日付にする
+                inputDate.value = latest.date;
+            } else {
+                statWeight.textContent = '-';
+                statFat.textContent = '-';
+                inputDate.value = getTodayString();
+            }
+
+            // 目標体重の計算・表示
+            if (appState.settings.targetWeight) {
+                const tw = parseFloat(appState.settings.targetWeight);
+                if (latestWeight) {
+                    const diffW = latestWeight - tw;
+                    const diffStr = diffW > 0 ? `あと +${diffW.toFixed(1)}kg` : `達成！ (${diffW.toFixed(1)}kg)`;
+                    targetWeightBox.textContent = `目標: ${tw.toFixed(1)}kg (${diffStr})`;
+                } else {
+                    targetWeightBox.textContent = `目標: ${tw.toFixed(1)}kg`;
+                }
+            } else {
+                targetWeightBox.textContent = '目標: 未設定';
+            }
+
+            // 目標体脂肪率の計算・表示
+            if (appState.settings.targetFat) {
+                const tf = parseFloat(appState.settings.targetFat);
+                if (latestFat) {
+                    const diffF = latestFat - tf;
+                    const diffStr = diffF > 0 ? `あと +${diffF.toFixed(1)}%` : `達成！ (${diffF.toFixed(1)}%)`;
+                    targetFatBox.textContent = `目標: ${tf.toFixed(1)}% (${diffStr})`;
+                } else {
+                    targetFatBox.textContent = `目標: ${tf.toFixed(1)}%`;
+                }
+            } else {
+                targetFatBox.textContent = '目標: 未設定';
+            }
+            
+            // 履歴リスト描画（降順ソート＆直近5件のみ抽出表示）
+            historyContainer.innerHTML = '';
+            const sortedList = [...appState.records].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const displayList = sortedList.slice(0, 5); // 直近5件制限
+
+            recordCountBadge.textContent = `${sortedList.length}件 (表示: ${displayList.length}件)`;
+            
+            if (displayList.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 24px 0; font-size: 14px;">記録がありません</p>';
+            } else {
+                displayList.forEach(item => {
+                    const itemEl = document.createElement('div');
+                    itemEl.className = "history-item";
+                    const dateObj = new Date(item.date);
+                    itemEl.innerHTML = `
+                        <div>
+                            <span style="font-size: 12px; font-weight: bold; color: ${item.synced ? '#10b981' : '#94a3b8'};">${item.synced ? '✅ 同期済' : '⏳ 未同期'}</span>
+                            <b style="margin-left: 8px; color: #334155;">${dateObj.getMonth() + 1}/${dateObj.getDate()}</b>
+                        </div>
+                        <div style="font-weight: bold;">
+                            <span style="color: #0d9488;">${item.weight.toFixed(1)}kg</span>
+                            <span style="color: #10b981; margin-left: 12px;">${item.fat ? item.fat.toFixed(1) + '%' : '-'}</span>
+                        </div>
+                    `;
+                    historyContainer.appendChild(itemEl);
+                });
+            }
+
+            // バナー表示制御
+            const hasUnsynced = appState.records.some(r => !r.synced);
+            if (hasUnsynced && appState.settings.gasUrl) {
+                syncBannerTitle.textContent = "🔄 ドライブと未同期";
+                syncBannerDesc.textContent = "クラウドに未送信のデータがあります";
+                syncBanner.classList.remove('hidden');
+            } else {
+                syncBanner.classList.add('hidden');
+            }
+
+            drawChart();
+        }
+
+        /* グラフィック描画エンジン */
+        function drawChart() {
+            const canvas = document.getElementById('customAnalyticsChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const width = rect.width;
+            const height = rect.height;
+            ctx.clearRect(0, 0, width, height);
+
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - appState.currentRange);
+            
+            const filteredData = appState.records.filter(r => {
+                return new Date(r.date) >= cutoffDate && (appState.activeTab === 'weight' ? r.weight !== null : r.fat !== null);
+            });
+
+            if (filteredData.length < 2) {
+                ctx.fillStyle = "#94a3b8";
+                ctx.font = "13px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("指定期間内に2件以上のデータが必要です", width / 2, height / 2);
+                return;
+            }
+
+            const isWeight = appState.activeTab === 'weight';
+            const themeColor = isWeight ? '#0d9488' : '#10b981';
+            const fillColor = isWeight ? 'rgba(13, 148, 136, 0.04)' : 'rgba(16, 185, 129, 0.04)';
+
+            const values = filteredData.map(r => isWeight ? r.weight : r.fat);
+            let minVal = Math.min(...values);
+            let maxVal = Math.max(...values);
+            
+            const targetVal = isWeight ? parseFloat(appState.settings.targetWeight) : parseFloat(appState.settings.targetFat);
+            if (!isNaN(targetVal)) {
+                minVal = Math.min(minVal, targetVal);
+                maxVal = Math.max(maxVal, targetVal);
+            }
+
+            const valRange = maxVal - minVal;
+            if (valRange === 0) { minVal -= 2; maxVal += 2; } 
+            else { minVal -= valRange * 0.15; maxVal += valRange * 0.15; }
+
+            const paddingLeft = 35;
+            const paddingRight = 15;
+            const paddingTop = 20;
+            const paddingBottom = 25;
+            const graphWidth = width - paddingLeft - paddingRight;
+            const graphHeight = height - paddingTop - paddingBottom;
+
+            // 水平補助線の描画
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+
+            for (let i = 0; i <= 2; i++) {
+                const ratio = i / 2;
+                const y = paddingTop + graphHeight * (1 - ratio);
+                const val = minVal + (maxVal - minVal) * ratio;
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, y);
+                ctx.lineTo(width - paddingRight, y);
+                ctx.stroke();
+                ctx.fillText(val.toFixed(1), paddingLeft - 6, y);
+            }
+
+            // 目標基準線の描画
+            if (!isNaN(targetVal)) {
+                const targetRatioY = (targetVal - minVal) / (maxVal - minVal);
+                const targetY = paddingTop + graphHeight * (1 - targetRatioY);
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(paddingLeft, targetY);
+                ctx.lineTo(width - paddingRight, targetY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#e11d48';
+                ctx.font = "bold 9px sans-serif";
+                ctx.fillText("🎯目標", width - paddingRight, targetY - 6);
+            }
+
+            // 座標計算
+            const points = filteredData.map((d, index) => {
+                const x = paddingLeft + graphWidth * (index / (filteredData.length - 1));
+                const val = isWeight ? d.weight : d.fat;
+                const y = paddingTop + graphHeight * (1 - ((val - minVal) / (maxVal - minVal)));
+                return { x, y, dateStr: d.date };
+            });
+
+            // エリア塗りつぶし
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, paddingTop + graphHeight);
+            points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.lineTo(points[points.length - 1].x, paddingTop + graphHeight);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+
+            // 折れ線
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+            ctx.strokeStyle = themeColor;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // ポイントとX軸ラベル
+            const labelInterval = Math.ceil(filteredData.length / 4);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+
+            points.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = themeColor;
+                ctx.fill();
+
+                if (i === 0 || i === points.length - 1 || i % labelInterval === 0) {
+                    const dateObj = new Date(p.dateStr);
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText(`${dateObj.getMonth() + 1}/${dateObj.getDate()}`, p.x, paddingTop + graphHeight + 6);
+                }
+            });
+        }
+
+        function changeRange(days) {
+            appState.currentRange = days;
+            [30, 90, 180].forEach(d => {
+                document.getElementById(`range-${d}`).className = d === days ? "btn-filter active" : "btn-filter";
+            });
+            drawChart();
+        }
+
+        function switchChartTab(tab) {
+            appState.activeTab = tab;
+            document.getElementById('tab-weight').className = tab === 'weight' ? 'btn-tab active weight' : 'btn-tab';
+            document.getElementById('tab-fat').className = tab === 'fat' ? 'btn-tab active fat' : 'btn-tab';
+            drawChart();
+        }
+
+        function openSettings() {
+            cfgGasUrl.value = appState.settings.gasUrl || '';
+            cfgTargetWeight.value = appState.settings.targetWeight || '';
+            cfgTargetFat.value = appState.settings.targetFat || '';
+            modalSettings.classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            modalSettings.classList.add('hidden');
+        }
+
+        function saveSettings() {
+            appState.settings.gasUrl = cfgGasUrl.value.trim();
+            appState.settings.targetWeight = cfgTargetWeight.value;
+            appState.settings.targetFat = cfgTargetFat.value;
+
+            localStorage.setItem('bodylog_settings_v5', JSON.stringify(appState.settings));
+            closeSettings();
+            updateUI();
+
+            if (appState.settings.gasUrl) {
+                fetchFromSpreadsheet();
+            }
+        }
+    </script>
+</body>
+</html>
