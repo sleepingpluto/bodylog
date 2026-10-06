@@ -30,6 +30,12 @@
         .stat-val { font-size: 24px; font-weight: 900; color: #0d9488; margin: 4px 0; }
         .stat-target { font-size: 11px; color: #64748b; background: #f1f5f9; padding: 4px; border-radius: 6px; margin-top: 4px; }
         
+        .average-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: right; }
+        .average-table th, .average-table td { padding: 12px 4px; border-bottom: 1px solid #f1f5f9; }
+        .average-table th:first-child { text-align: left; }
+        .average-table td { color: #0d9488; font-weight: bold; }
+        .average-count { display: block; color: #64748b; font-size: 11px; font-weight: normal; margin-top: 4px; }
+
         .filter-group { display: flex; background: #f1f5f9; border-radius: 10px; padding: 2px; margin-bottom: 16px; }
         .btn-filter { flex: 1; border: none; background: transparent; padding: 6px; font-size: 12px; font-weight: bold; color: #64748b; border-radius: 8px; cursor: pointer; }
         .btn-filter.active { background: white; color: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -116,6 +122,18 @@
                 <div id="target-fat-box" class="stat-target" style="color: #115e59;">目標: 未設定</div>
             </div>
         </div>
+
+        <section aria-labelledby="average-title">
+            <h2 id="average-title" style="font-size: 18px; margin: 0 0 12px; color: #334155;">📊 期間の平均値</h2>
+            <table class="average-table">
+                <thead><tr><th scope="col">期間</th><th scope="col">体重</th><th scope="col">体脂肪率</th></tr></thead>
+                <tbody>
+                    <tr><th scope="row">1週間<span id="average-range-7" class="average-count"></span></th><td id="average-weight-7">—</td><td id="average-fat-7">—</td></tr>
+                    <tr><th scope="row">1ヶ月<span id="average-range-30" class="average-count"></span></th><td id="average-weight-30">—</td><td id="average-fat-30">—</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size: 11px; color: #64748b; margin: 12px 0 0; line-height: 1.6;">今日を含む直近7日・30日の平均です。未記録・未入力の値は除いて計算します。</p>
+        </section>
 
         <!-- トレンド分析グラフセクション -->
         <section>
@@ -387,8 +405,45 @@
             btnSyncAction.textContent = "同期する";
         }
 
+        // 端末の暦日を基準にする。未入力値や未来の記録は平均に含めない。
+        function calculatePeriodAverage(records, field, days, today = getTodayString()) {
+            const [year, month, day] = today.split('-').map(Number);
+            const start = new Date(year, month - 1, day - days + 1);
+            const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+            const values = records.filter(r => r.date >= startDate && r.date <= today)
+                .map(r => r[field])
+                .filter(value => (typeof value === 'number' || typeof value === 'string') && String(value).trim() !== '')
+                .map(Number).filter(Number.isFinite);
+            return { startDate, endDate: today, count: values.length,
+                average: values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null };
+        }
+
+        function updatePeriodAverages() {
+            const today = getTodayString();
+            [7, 30].forEach(days => {
+                ['weight', 'fat'].forEach(field => {
+                    const result = calculatePeriodAverage(appState.records, field, days, today);
+                    const cell = document.getElementById(`average-${field}-${days}`);
+                    cell.textContent = result.average === null ? '—' : `${result.average.toFixed(1)} ${field === 'weight' ? 'kg' : '%'}`;
+                    const count = document.createElement('span');
+                    count.className = 'average-count';
+                    count.textContent = result.count ? `${result.count}件の記録` : '記録なし';
+                    cell.appendChild(count);
+                    const shortDate = date => date.slice(5).replace('-', '/');
+                    document.getElementById(`average-range-${days}`).textContent = `${shortDate(result.startDate)}〜${shortDate(result.endDate)}`;
+                });
+            });
+        }
+
+        // 開いたまま日付が変わった場合も平均期間を更新する。
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) updatePeriodAverages();
+        });
+        setInterval(updatePeriodAverages, 60000);
+
         function updateUI() {
             filterPastOneYearRecords();
+            updatePeriodAverages();
 
             // 最新値の抽出 ＆ 日付初期値の自動設定（最新の日付をセット）
             let latestWeight = null;
